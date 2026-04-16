@@ -596,56 +596,72 @@ function populateSheetSelect(select, workbook, preferredName) {
 }
 
 async function handleImport(kind, file) {
-  if (!file) return;
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
+  try {
+    if (!file) return;
+    
+    // Validação para evitar falha silenciosa se a biblioteca não carregar
+    if (typeof XLSX === 'undefined') {
+      throw new Error("Biblioteca SheetJS (XLSX) não encontrada. Verifique as tags <script> no seu HTML.");
+    }
 
-  if (kind === 'curve') {
-    state.curveWorkbook = workbook;
-    state.curveFileName = file.name;
-    state.curveSheet = workbook.SheetNames[0] || '';
-    populateSheetSelect(els.curveSheetSelect, workbook, state.curveSheet);
-  } else {
-    state.stockWorkbook = workbook;
-    state.stockFileName = file.name;
-    state.stockSheet = workbook.SheetNames[0] || '';
-    populateSheetSelect(els.stockSheetSelect, workbook, state.stockSheet);
-  }
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
 
-  updateFileState(kind, file.name);
+    if (kind === 'curve') {
+      state.curveWorkbook = workbook;
+      state.curveFileName = file.name;
+      state.curveSheet = workbook.SheetNames[0] || '';
+      populateSheetSelect(els.curveSheetSelect, workbook, state.curveSheet);
+    } else {
+      state.stockWorkbook = workbook;
+      state.stockFileName = file.name;
+      state.stockSheet = workbook.SheetNames[0] || '';
+      populateSheetSelect(els.stockSheetSelect, workbook, state.stockSheet);
+    }
 
-  if (state.curveWorkbook && state.stockWorkbook) {
-    els.openPanelBtn.disabled = false;
-    if (!els.appShell.classList.contains('hidden')) processData();
+    updateFileState(kind, file.name);
+
+    if (state.curveWorkbook && state.stockWorkbook) {
+      els.openPanelBtn.disabled = false;
+      if (!els.appShell.classList.contains('hidden')) processData();
+    }
+  } catch (error) {
+    console.error(`Erro ao importar a planilha (${kind}):`, error);
+    alert(`Erro ao importar arquivo: ${error.message}`);
   }
 }
 
 function processData() {
-  if (!state.curveWorkbook || !state.stockWorkbook) return;
+  try {
+    if (!state.curveWorkbook || !state.stockWorkbook) return;
 
-  const thresholdA = Math.min(100, Math.max(1, parseNumber(els.thresholdA.value) || 80));
-  const thresholdB = Math.min(100, Math.max(thresholdA, parseNumber(els.thresholdB.value) || 95));
-  els.thresholdA.value = thresholdA;
-  els.thresholdB.value = thresholdB;
+    const thresholdA = Math.min(100, Math.max(1, parseNumber(els.thresholdA.value) || 80));
+    const thresholdB = Math.min(100, Math.max(thresholdA, parseNumber(els.thresholdB.value) || 95));
+    els.thresholdA.value = thresholdA;
+    els.thresholdB.value = thresholdB;
 
-  state.curveSheet = els.curveSheetSelect.value || state.curveSheet;
-  state.stockSheet = els.stockSheetSelect.value || state.stockSheet;
+    state.curveSheet = els.curveSheetSelect.value || state.curveSheet;
+    state.stockSheet = els.stockSheetSelect.value || state.stockSheet;
 
-  const curveObjects = rowsToObjects(getWorkbookRows(state.curveWorkbook, state.curveSheet));
-  const stockObjects = rowsToObjects(getWorkbookRows(state.stockWorkbook, state.stockSheet));
-  const curveRows = buildCurveRows(curveObjects);
-  const stockRows = buildStockRows(stockObjects);
+    const curveObjects = rowsToObjects(getWorkbookRows(state.curveWorkbook, state.curveSheet));
+    const stockObjects = rowsToObjects(getWorkbookRows(state.stockWorkbook, state.stockSheet));
+    const curveRows = buildCurveRows(curveObjects);
+    const stockRows = buildStockRows(stockObjects);
 
-  const metricKey = els.metricSelect.value === 'value' ? 'soldValue' : 'soldQty';
-  state.rows = mergeRows(curveRows, stockRows, metricKey, thresholdA, thresholdB);
+    const metricKey = els.metricSelect.value === 'value' ? 'soldValue' : 'soldQty';
+    state.rows = mergeRows(curveRows, stockRows, metricKey, thresholdA, thresholdB);
 
-  renderSummary(state.rows);
-  renderTable();
+    renderSummary(state.rows);
+    renderTable();
 
-  const enabled = state.rows.length > 0;
-  els.exportXlsxBtn.disabled = !enabled;
-  els.exportPdfBtn.disabled = !enabled;
-  els.exportCsvBtn.disabled = !enabled;
+    const enabled = state.rows.length > 0;
+    els.exportXlsxBtn.disabled = !enabled;
+    els.exportPdfBtn.disabled = !enabled;
+    els.exportCsvBtn.disabled = !enabled;
+  } catch (error) {
+    console.error("Erro ao processar os dados:", error);
+    alert("Ocorreu um erro ao processar os dados das planilhas. Verifique o console (F12).");
+  }
 }
 
 function openPanel() {
