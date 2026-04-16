@@ -483,7 +483,9 @@ function renderSummary(rows) {
   els.kpiZero.textContent = formatInt(zero);
   els.kpiZeroSub.textContent = 'Estoque igual a zero';
   els.statusLine.textContent = `${metricLabel} + estoque total cruzados por SKU base.`;
-  els.processInfo.textContent = `Base ABC por ${metricLabel}. ACBF000 → K050.`;
+  if (els.processInfo) {
+    els.processInfo.textContent = `Base ABC por ${metricLabel}. ACBF000 → K050.`;
+  }
 
   renderDistribution(rows);
 }
