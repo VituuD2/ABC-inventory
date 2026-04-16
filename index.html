@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Contagem Frequente</title>
+  <meta name="theme-color" content="#0b111b">
+  <link rel="icon" type="image/x-icon" href="icon.ico">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <input type="file" id="curveInput" accept=".xls,.xlsx,.csv" hidden>
+  <input type="file" id="stockInput" accept=".xls,.xlsx,.csv" hidden>
+
+  <section class="launch-screen" id="launchScreen">
+    <div class="launch-shell">
+      <div class="launch-badge">contagem frequente</div>
+      <div class="launch-header">
+        <h1>Painel de contagem</h1>
+      </div>
+
+      <div class="import-grid">
+        <button class="import-card" id="curveCard" type="button" aria-label="Importar curva ABC">
+          <div class="import-card-top">
+            <div class="import-icon import-icon-curve">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 4.75h7.5L19 9.25V19a1.75 1.75 0 0 1-1.75 1.75h-10.5A1.75 1.75 0 0 1 5 19V6.5A1.75 1.75 0 0 1 6.75 4.75Z"></path>
+                <path d="M14 4.75V9h4.25"></path>
+                <path d="M8 14.25h8"></path>
+                <path d="M8 17.25h5"></path>
+              </svg>
+            </div>
+            <span class="status-tag" id="curveTag">pendente</span>
+          </div>
+          <div class="import-card-body">
+            <strong>Curva ABC</strong>
+            <span class="file-note" id="curveFileNote">Nenhum arquivo</span>
+          </div>
+          <div class="ext-row">
+            <span class="ext-pill">.xls</span>
+            <span class="ext-pill">.xlsx</span>
+            <span class="ext-pill">.csv</span>
+          </div>
+        </button>
+
+        <button class="import-card" id="stockCard" type="button" aria-label="Importar estoque">
+          <div class="import-card-top">
+            <div class="import-icon import-icon-stock">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3.75 8.25 12 3.75l8.25 4.5L12 12.75l-8.25-4.5Z"></path>
+                <path d="M3.75 8.25V16.5L12 21l8.25-4.5V8.25"></path>
+                <path d="M12 12.75V21"></path>
+              </svg>
+            </div>
+            <span class="status-tag" id="stockTag">pendente</span>
+          </div>
+          <div class="import-card-body">
+            <strong>Estoque</strong>
+            <span class="file-note" id="stockFileNote">Nenhum arquivo</span>
+          </div>
+          <div class="ext-row">
+            <span class="ext-pill">.xls</span>
+            <span class="ext-pill">.xlsx</span>
+            <span class="ext-pill">.csv</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="launch-actions">
+        <button class="btn btn-primary" id="openPanelBtn" type="button" disabled>Entrar no painel</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="app-shell hidden" id="appShell">
+    <header class="topbar panel">
+      <div class="topbar-main">
+        <div class="app-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4.75 5.75h14.5v12.5H4.75z"></path>
+            <path d="M8.25 15.25V11"></path>
+            <path d="M12 15.25V8.75"></path>
+            <path d="M15.75 15.25v-4"></path>
+          </svg>
+        </div>
+        <div class="topbar-copy">
+          <h2>Painel de frequência de contagem</h2>
+          <p id="statusLine">Cruze curva e estoque por SKU base.</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="file-chip-row">
+          <div class="file-chip"><span class="file-chip-label">Curva</span><strong id="curveChipName">não carregada</strong></div>
+          <div class="file-chip"><span class="file-chip-label">Estoque</span><strong id="stockChipName">não carregado</strong></div>
+        </div>
+        <div class="topbar-buttons">
+          <button class="btn btn-secondary" id="replaceCurveBtn" type="button">Trocar curva</button>
+          <button class="btn btn-secondary" id="replaceStockBtn" type="button">Trocar estoque</button>
+          <button class="btn btn-secondary" id="backToStartBtn" type="button">Início</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="control-strip panel">
+      <div class="control-grid">
+        <label class="field">
+          <span>Aba curva</span>
+          <select id="curveSheetSelect" class="control"></select>
+        </label>
+        <label class="field">
+          <span>Aba estoque</span>
+          <select id="stockSheetSelect" class="control"></select>
+        </label>
+        <label class="field">
+          <span>Base ABC</span>
+          <select id="metricSelect" class="control">
+            <option value="quantity">Quantidade vendida</option>
+            <option value="value">Valor vendido</option>
+          </select>
+        </label>
+        <label class="field field-small">
+          <span>A até %</span>
+          <input id="thresholdA" class="control" type="number" min="1" max="100" step="0.1" value="80">
+        </label>
+        <label class="field field-small">
+          <span>B até %</span>
+          <input id="thresholdB" class="control" type="number" min="1" max="100" step="0.1" value="95">
+        </label>
+      </div>
+      <div class="control-actions">
+        <button class="btn btn-primary" id="processBtn" type="button">Atualizar</button>
+      </div>
+    </section>
+
+    <section class="kpi-grid">
+      <article class="kpi-card panel accent-blue">
+        <div class="kpi-head">
+          <span>SKUs conciliados</span>
+          <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M4.75 7.75h14.5"></path>
+              <path d="M4.75 12h14.5"></path>
+              <path d="M4.75 16.25h14.5"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiMatched">—</div>
+        <div class="kpi-meta" id="kpiMatchedSub">Aguardando arquivos.</div>
+      </article>
+
+      <article class="kpi-card panel accent-orange">
+        <div class="kpi-head">
+          <span>A+/A</span>
+          <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M12 4.5 14.32 9.2l5.18.75-3.75 3.65.88 5.15L12 16.32l-4.63 2.43.88-5.15-3.75-3.65 5.18-.75L12 4.5Z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiPriority">—</div>
+        <div class="kpi-meta" id="kpiPrioritySub">Maior frequência.</div>
+      </article>
+
+      <article class="kpi-card panel accent-amber">
+        <div class="kpi-head">
+          <span>Estoque crítico</span>
+          <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M12 8.5V13"></path>
+              <path d="M12 16.5h.01"></path>
+              <path d="M10.1 4.9 3.98 15.5A1.5 1.5 0 0 0 5.28 17.75h13.44a1.5 1.5 0 0 0 1.3-2.25L13.9 4.9a1.5 1.5 0 0 0-2.6 0Z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiCritical">—</div>
+        <div class="kpi-meta" id="kpiCriticalSub">Sem saldo ou cobertura curta.</div>
+      </article>
+
+      <article class="kpi-card panel accent-red">
+        <div class="kpi-head">
+          <span>Sem saldo</span>
+          <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <circle cx="12" cy="12" r="7.25"></circle>
+              <path d="M9.4 9.4 14.6 14.6"></path>
+              <path d="M14.6 9.4 9.4 14.6"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiZero">—</div>
+        <div class="kpi-meta" id="kpiZeroSub">Estoque total zerado.</div>
+      </article>
+    </section>
+
+    <section class="distribution-panel panel">
+      <div class="section-title-row">
+        <h3>Distribuição</h3>
+        <span class="section-subtle" id="distributionSub">Sem cálculo</span>
+      </div>
+      <div class="distribution-grid" id="distributionGrid"></div>
+    </section>
+
+    <section class="table-panel panel">
+      <div class="table-toolbar">
+        <div class="toolbar-group toolbar-group-left">
+          <input id="searchInput" class="control search-control" type="search" placeholder="Buscar produto, SKU base ou descrição">
+          <select id="frequencyFilter" class="control filter-control">
+            <option value="">Frequência</option>
+            <option value="A+">A+</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+          <select id="syncFilter" class="control filter-control">
+            <option value="">Status</option>
+            <option value="matched">Com estoque</option>
+            <option value="missing">Sem estoque</option>
+            <option value="zero">Saldo zerado</option>
+          </select>
+        </div>
+
+        <div class="toolbar-group toolbar-group-right">
+          <div class="result-count" id="resultCount">Nenhum item</div>
+          <button class="btn btn-secondary" id="exportXlsxBtn" type="button" disabled>XLSX</button>
+          <button class="btn btn-secondary" id="exportPdfBtn" type="button" disabled>PDF</button>
+          <button class="btn btn-secondary" id="exportCsvBtn" type="button" disabled>CSV</button>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="tableWrap">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M7 4.75h7.5L19 9.25V19a1.75 1.75 0 0 1-1.75 1.75h-10.5A1.75 1.75 0 0 1 5 19V6.5A1.75 1.75 0 0 1 6.75 4.75Z"></path>
+              <path d="M14 4.75V9h4.25"></path>
+              <path d="M8 14.25h8"></path>
+            </svg>
+          </div>
+          <strong>Nada processado</strong>
+          <span>Importe curva e estoque.</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
