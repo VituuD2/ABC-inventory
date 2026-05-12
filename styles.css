@@ -339,9 +339,22 @@ svg {
   font-size: 12px;
 }
 
+.stock-rule-panel {
+  padding: 14px 16px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .field {
   display: grid;
   gap: 7px;
+}
+
+.field-inline {
+  min-width: 190px;
 }
 
 .field span {
@@ -513,6 +526,57 @@ select.control optgroup {
   gap: 12px;
 }
 
+.warnings-panel {
+  padding: 0;
+  display: grid;
+  overflow: hidden;
+}
+
+.warnings-toggle {
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.warnings-toggle span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.warnings-toggle strong {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(224, 106, 106, 0.18);
+  border: 1px solid rgba(224, 106, 106, 0.42);
+  color: #ffe0e0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.warnings-panel ul {
+  margin: 0 16px 14px;
+  padding-left: 18px;
+  color: #f1d28a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.warnings-panel.collapsed ul {
+  display: none;
+}
+
 .section-title-row {
   display: flex;
   align-items: center;
@@ -678,6 +742,11 @@ tbody tr:hover {
   font-size: 12px;
 }
 
+.current-qty-cell {
+  min-width: 120px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: -0.01em;
@@ -732,12 +801,90 @@ tbody tr:hover {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .import-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .distribution-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --line: #d1d5db;
+    --text: #111827;
+    --muted: #4b5563;
+    --shadow: none;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .launch-screen,
+  .topbar,
+  .control-strip,
+  .stock-rule-panel,
+  .kpi-grid,
+  .distribution-panel,
+  .warnings-panel,
+  .table-toolbar,
+  .btn {
+    display: none !important;
+  }
+
+  .app-shell {
+    width: 100%;
+    margin: 0;
+    display: block;
+  }
+
+  .panel,
+  .table-panel {
+    background: #ffffff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .table-wrap {
+    max-height: none;
+    overflow: visible;
+  }
+
+  table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  thead th {
+    position: static;
+    background: #f3f4f6 !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db;
+  }
+
+  tbody td {
+    color: #111827 !important;
+    border: 1px solid #d1d5db;
+  }
+
+  .pill,
+  .pill-neutral,
+  .current-qty-cell {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-color: #d1d5db !important;
   }
 }
 
@@ -749,7 +896,8 @@ tbody tr:hover {
   }
 
   .topbar,
-  .control-strip {
+  .control-strip,
+  .stock-rule-panel {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -762,6 +910,10 @@ tbody tr:hover {
   .control-actions {
     width: 100%;
     justify-items: stretch;
+  }
+
+  .field-inline {
+    width: 100%;
   }
 
   .control-note {

@@ -11,6 +11,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="composicao-data.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -38,7 +39,7 @@
             <span class="status-tag" id="curveTag">pendente</span>
           </div>
           <div class="import-card-body">
-            <strong>Curva ABC</strong>
+            <strong>Entrada 1: Curva ABC</strong>
             <span class="file-note" id="curveFileNote">Nenhum arquivo</span>
           </div>
           <div class="ext-row">
@@ -60,7 +61,7 @@
             <span class="status-tag" id="stockTag">pendente</span>
           </div>
           <div class="import-card-body">
-            <strong>Estoque</strong>
+            <strong>Entrada 2: Estoque</strong>
             <span class="file-note" id="stockFileNote">Nenhum arquivo</span>
           </div>
           <div class="ext-row">
@@ -69,6 +70,7 @@
             <span class="ext-pill">.csv</span>
           </div>
         </button>
+
       </div>
 
       <div class="launch-actions">
@@ -90,7 +92,7 @@
         </div>
         <div class="topbar-copy">
           <h2>Painel de frequência de contagem</h2>
-          <p id="statusLine">Cruze curva e estoque por SKU base.</p>
+          <p id="statusLine">Resultado por produto simples.</p>
         </div>
       </div>
 
@@ -136,6 +138,17 @@
       <div class="control-actions">
         <button class="btn btn-primary" id="processBtn" type="button">Atualizar</button>
       </div>
+    </section>
+
+    <section class="stock-rule-panel panel">
+      <div class="section-title-row">
+        <h3>Estoque baixo</h3>
+        <span class="section-subtle">Média de venda em 30 dias</span>
+      </div>
+      <label class="field field-inline">
+        <span>Dias de cobertura</span>
+        <input id="lowStockDays" class="control" type="number" min="1" max="90" step="1" value="3">
+      </label>
     </section>
 
     <section class="kpi-grid">
@@ -206,10 +219,18 @@
       <div class="distribution-grid" id="distributionGrid"></div>
     </section>
 
+    <section class="warnings-panel panel hidden collapsed" id="warningsPanel">
+      <button class="warnings-toggle" id="warningsToggle" type="button" aria-expanded="false">
+        <span>Avisos</span>
+        <strong id="warningsCount">0</strong>
+      </button>
+      <ul id="warningsList"></ul>
+    </section>
+
     <section class="table-panel panel">
       <div class="table-toolbar">
         <div class="toolbar-group toolbar-group-left">
-          <input id="searchInput" class="control search-control" type="search" placeholder="Buscar produto, SKU base ou descrição">
+          <input id="searchInput" class="control search-control" type="search" placeholder="Buscar produto ou SKU">
           <select id="frequencyFilter" class="control filter-control">
             <option value="">Frequência</option>
             <option value="A+">A+</option>
@@ -221,6 +242,7 @@
           <select id="syncFilter" class="control filter-control">
             <option value="">Status</option>
             <option value="matched">Com estoque</option>
+            <option value="low">Estoque baixo</option>
             <option value="missing">Sem estoque</option>
             <option value="zero">Saldo zerado</option>
           </select>
