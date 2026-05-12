@@ -759,18 +759,11 @@ function renderDistribution(rows) {
     'D': 'baixa'
   };
 
-  const rules = {
-    'A+': 'sem saldo ou muito curto',
-    'A': 'contagem mais próxima',
-    'B': 'rotina recorrente',
-    'C': 'cadência periódica',
-    'D': 'baixa prioridade'
-  };
-
   els.distributionGrid.innerHTML = freqOrder.map((freq) => {
     const colors = getFreqPalette(freq);
+    const active = els.frequencyFilter.value === freq;
     return `
-      <div class="distribution-item">
+      <button class="distribution-item ${active ? 'active' : ''}" type="button" data-frequency="${escapeHtml(freq)}" style="${active ? `border-color:${colors.border};background:${colors.bg};` : ''}">
         <div class="distribution-top">
           <div class="distribution-label">
             <span class="distribution-dot" style="background:${colors.bg}; border:1px solid ${colors.border};"></span>
@@ -779,10 +772,18 @@ function renderDistribution(rows) {
           <span class="section-subtle">${labels[freq]}</span>
         </div>
         <div class="distribution-count">${formatInt(counts[freq] || 0)}</div>
-        <div class="distribution-rule">${rules[freq]}</div>
-      </div>
+      </button>
     `;
   }).join('');
+
+  els.distributionGrid.querySelectorAll('[data-frequency]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const frequency = button.dataset.frequency;
+      els.frequencyFilter.value = els.frequencyFilter.value === frequency ? '' : frequency;
+      renderDistribution(state.rows);
+      renderTable();
+    });
+  });
 
   const high = (counts['A+'] || 0) + (counts['A'] || 0);
   els.distributionSub.textContent = `${formatInt(high)} itens em alta frequência`;

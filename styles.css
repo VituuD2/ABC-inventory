@@ -607,8 +607,22 @@ select.control optgroup {
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
   display: grid;
   gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.distribution-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-2);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.distribution-item.active {
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .distribution-top {
