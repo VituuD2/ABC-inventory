@@ -14,10 +14,12 @@ const state = {
   warningsExpanded: false,
   warnings: [],
   rows: [],
-  filteredRows: []
+  filteredRows: [],
+  selectedFrequencies: []
 };
 
 const COMPOSITION_FILE_NAME = 'composicao.xls';
+const IMPORT_CACHE_KEY = 'abcInventory.importCache.v1';
 const manualSkuCompositions = [
   {
     sourceSku: '179P',
@@ -747,6 +749,7 @@ function getStatusPalette(status) {
 
 function renderDistribution(rows) {
   const counts = Object.fromEntries(freqOrder.map((freq) => [freq, 0]));
+  const selectedFrequencies = new Set(state.selectedFrequencies);
   rows.forEach((row) => {
     counts[row.frequency] = (counts[row.frequency] || 0) + 1;
   });
@@ -761,9 +764,9 @@ function renderDistribution(rows) {
 
   els.distributionGrid.innerHTML = freqOrder.map((freq) => {
     const colors = getFreqPalette(freq);
-    const active = els.frequencyFilter.value === freq;
+    const active = selectedFrequencies.has(freq);
     return `
-      <button class="distribution-item ${active ? 'active' : ''}" type="button" data-frequency="${escapeHtml(freq)}" style="${active ? `border-color:${colors.border};background:${colors.bg};` : ''}">
+      <button class="distribution-item ${active ? 'active' : ''}" type="button" data-frequency="${escapeHtml(freq)}" aria-pressed="${active}" style="${active ? `border-color:${colors.border};background:${colors.bg};` : ''}">
         <div class="distribution-top">
           <div class="distribution-label">
             <span class="distribution-dot" style="background:${colors.bg}; border:1px solid ${colors.border};"></span>
@@ -779,7 +782,10 @@ function renderDistribution(rows) {
   els.distributionGrid.querySelectorAll('[data-frequency]').forEach((button) => {
     button.addEventListener('click', () => {
       const frequency = button.dataset.frequency;
-      els.frequencyFilter.value = els.frequencyFilter.value === frequency ? '' : frequency;
+      state.selectedFrequencies = selectedFrequencies.has(frequency)
+        ? state.selectedFrequencies.filter((item) => item !== frequency)
+        : [...state.selectedFrequencies, frequency];
+      els.frequencyFilter.value = state.selectedFrequencies.length === 1 ? state.selectedFrequencies[0] : '';
       renderDistribution(state.rows);
       renderTable();
     });
@@ -837,6 +843,18 @@ function toggleWarnings() {
   renderWarnings();
 }
 
+function handleFrequencySelectChange() {
+  state.selectedFrequencies = els.frequencyFilter.value ? [els.frequencyFilter.value] : [];
+  renderDistribution(state.rows);
+  renderTable();
+}
+
+async function handleSheetSelectChange(kind) {
+  const select = kind === 'curve' ? els.curveSheetSelect : els.stockSheetSelect;
+  updateCachedSheet(kind, select.value);
+  await processData();
+}
+
 function refreshLaunchAvailability() {
   const ready = Boolean(state.curveWorkbook && state.stockWorkbook);
   els.openPanelBtn.disabled = !ready;
@@ -845,13 +863,13 @@ function refreshLaunchAvailability() {
 
 function getActiveRows() {
   const query = normalizeSearch(els.searchInput.value);
-  const frequency = els.frequencyFilter.value;
+  const frequencies = state.selectedFrequencies;
   const sync = els.syncFilter.value;
 
   return state.rows.filter((row) => {
     const haystack = normalizeSearch(`${row.product} ${row.description} ${row.sku}`);
     if (query && !haystack.includes(query)) return false;
-    if (frequency && row.frequency !== frequency) return false;
+    if (frequencies.length && !frequencies.includes(row.frequency)) return false;
     if (sync && row.syncStatus !== sync) return false;
     return true;
   });
@@ -963,6 +981,76 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function readImportCache() {
+  try {
+    return JSON.parse(localStorage.getItem(IMPORT_CACHE_KEY) || '{}');
+  } catch (error) {
+    console.warn('Cache local das planilhas invalido. Limpando cache.', error);
+    localStorage.removeItem(IMPORT_CACHE_KEY);
+    return {};
+  }
+}
+
+function writeImportCache(cache) {
+  try {
+    localStorage.setItem(IMPORT_CACHE_KEY, JSON.stringify(cache));
+    return true;
+  } catch (error) {
+    console.warn('Nao foi possivel salvar as planilhas no localStorage.', error);
+    return false;
+  }
+}
+
+function saveImportedWorkbook(kind, fileName, buffer, sheetName) {
+  const cache = readImportCache();
+  cache[kind] = {
+    fileName,
+    sheetName,
+    savedAt: Date.now(),
+    base64: arrayBufferToBase64(buffer)
+  };
+  writeImportCache(cache);
+}
+
+function updateCachedSheet(kind, sheetName) {
+  const cache = readImportCache();
+  if (!cache[kind]) return;
+  cache[kind].sheetName = sheetName;
+  cache[kind].savedAt = Date.now();
+  writeImportCache(cache);
+}
+
+function applyImportedWorkbook(kind, workbook, fileName, preferredSheet) {
+  const sheetName = preferredSheet && workbook.SheetNames.includes(preferredSheet)
+    ? preferredSheet
+    : workbook.SheetNames[0] || '';
+
+  if (kind === 'curve') {
+    state.curveWorkbook = workbook;
+    state.curveFileName = fileName;
+    state.curveSheet = sheetName;
+    populateSheetSelect(els.curveSheetSelect, workbook, state.curveSheet);
+  } else {
+    state.stockWorkbook = workbook;
+    state.stockFileName = fileName;
+    state.stockSheet = sheetName;
+    populateSheetSelect(els.stockSheetSelect, workbook, state.stockSheet);
+  }
+
+  updateFileState(kind, fileName);
+}
+
 async function handleImport(kind, file) {
   try {
     if (!file) return;
@@ -974,20 +1062,9 @@ async function handleImport(kind, file) {
 
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
-
-    if (kind === 'curve') {
-      state.curveWorkbook = workbook;
-      state.curveFileName = file.name;
-      state.curveSheet = workbook.SheetNames[0] || '';
-      populateSheetSelect(els.curveSheetSelect, workbook, state.curveSheet);
-    } else {
-      state.stockWorkbook = workbook;
-      state.stockFileName = file.name;
-      state.stockSheet = workbook.SheetNames[0] || '';
-      populateSheetSelect(els.stockSheetSelect, workbook, state.stockSheet);
-    }
-
-    updateFileState(kind, file.name);
+    const sheetName = workbook.SheetNames[0] || '';
+    applyImportedWorkbook(kind, workbook, file.name, sheetName);
+    saveImportedWorkbook(kind, file.name, buffer, sheetName);
 
     refreshLaunchAvailability();
     if (state.curveWorkbook && state.stockWorkbook && !els.appShell.classList.contains('hidden')) {
@@ -996,6 +1073,27 @@ async function handleImport(kind, file) {
   } catch (error) {
     console.error(`Erro ao importar a planilha (${kind}):`, error);
     alert(`Erro ao importar arquivo: ${error.message}`);
+  }
+}
+
+async function restoreCachedImports() {
+  try {
+    if (typeof XLSX === 'undefined') return;
+
+    const cache = readImportCache();
+    ['curve', 'stock'].forEach((kind) => {
+      const cached = cache[kind];
+      if (!cached?.base64 || !cached.fileName) return;
+      const workbook = XLSX.read(base64ToArrayBuffer(cached.base64), { type: 'array' });
+      applyImportedWorkbook(kind, workbook, cached.fileName, cached.sheetName);
+    });
+
+    refreshLaunchAvailability();
+    if (state.curveWorkbook && state.stockWorkbook && !els.appShell.classList.contains('hidden')) {
+      await processData();
+    }
+  } catch (error) {
+    console.warn('Nao foi possivel restaurar as planilhas salvas no navegador.', error);
   }
 }
 
@@ -1346,17 +1444,18 @@ els.openPanelBtn.addEventListener('click', () => openPanel());
 els.backToStartBtn.addEventListener('click', backToStart);
 els.processBtn.addEventListener('click', () => processData());
 els.metricSelect.addEventListener('change', () => processData());
-els.curveSheetSelect.addEventListener('change', () => processData());
-els.stockSheetSelect.addEventListener('change', () => processData());
+els.curveSheetSelect.addEventListener('change', () => handleSheetSelectChange('curve'));
+els.stockSheetSelect.addEventListener('change', () => handleSheetSelectChange('stock'));
 els.thresholdA.addEventListener('change', () => processData());
 els.thresholdB.addEventListener('change', () => processData());
 els.lowStockDays?.addEventListener('change', () => processData());
 els.warningsToggle?.addEventListener('click', toggleWarnings);
 els.searchInput.addEventListener('input', renderTable);
-els.frequencyFilter.addEventListener('change', renderTable);
+els.frequencyFilter.addEventListener('change', handleFrequencySelectChange);
 els.syncFilter.addEventListener('change', renderTable);
 els.exportXlsxBtn.addEventListener('click', exportXlsx);
 els.exportPdfBtn.addEventListener('click', exportPdf);
 els.exportCsvBtn.addEventListener('click', exportCsv);
 
+restoreCachedImports();
 loadBundledComposition();
